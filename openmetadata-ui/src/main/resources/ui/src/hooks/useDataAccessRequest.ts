@@ -52,6 +52,7 @@ export const useDataAccessRequest = ({
         category: TaskCategory.DataAccess,
         type: TaskEntityType.DataAccessRequest,
         createdBy: currentUser.name,
+        statusGroup: 'open',
         fields: 'about,resolution',
         limit: 10,
       });
@@ -80,33 +81,30 @@ export const useDataAccessRequest = ({
     };
   }, [fetchExistingDar, listenForEvents]);
 
-  const isDarDisabled = useMemo(() => {
-    return existingDarTasks.some((task) => {
-      const stage = (
-        task.workflowStageDisplayName ??
-        task.workflowStageId ??
-        ''
-      ).toLowerCase();
+  const isDarDisabled = useMemo(
+    () =>
+      existingDarTasks.some((task) => {
+        const stage = (
+          task.workflowStageDisplayName ??
+          task.workflowStageId ??
+          ''
+        ).toLowerCase();
+        if (stage === 'approved') {
+          const payload = task.payload as
+            | { duration?: string; expirationDate?: number }
+            | undefined;
 
-      if (stage === 'review') {
+          return isDarApprovalActive(
+            task.updatedAt ?? task.createdAt,
+            payload?.duration,
+            payload?.expirationDate
+          );
+        }
+
         return true;
-      }
-
-      if (stage === 'approved') {
-        const payload = task.payload as
-          | { duration?: string; expirationDate?: number }
-          | undefined;
-
-        return isDarApprovalActive(
-          task.updatedAt ?? task.createdAt,
-          payload?.duration,
-          payload?.expirationDate
-        );
-      }
-
-      return false;
-    });
-  }, [existingDarTasks]);
+      }),
+    [existingDarTasks]
+  );
 
   return { isDarDisabled, refetch: fetchExistingDar };
 };

@@ -14,7 +14,7 @@
             }
         },
         "kpiDetails": {
-            "$ref": "chartFunctions.json#/definitions/kpiDetails"
+            "$ref": "dataInsightCustomChart.json#/definitions/kpiDetails"
         }
     },
     "additionalProperties": false

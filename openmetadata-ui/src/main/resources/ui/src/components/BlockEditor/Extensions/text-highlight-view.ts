@@ -22,20 +22,10 @@ export default Node.create({
     return {
       class: {
         default: '',
-        parseHTML: (element) => element.getAttribute('class'),
-        renderHTML: (attributes) => {
-          if (!attributes.class) {
-            return {};
-          }
-
-          return {
-            class: attributes.class,
-          };
-        },
       },
       'data-testid': {
         default: '',
-        parseHTML: (element) => element.dataset.testid,
+        parseHTML: (element) => element.getAttribute('data-testid'),
         renderHTML: (attributes) => {
           if (!attributes['data-testid']) {
             return {};
@@ -48,7 +38,7 @@ export default Node.create({
       },
       'data-highlight': {
         default: true,
-        parseHTML: (element) => element.dataset.highlight,
+        parseHTML: (element) => element.getAttribute('data-highlight'),
         renderHTML: (attributes) => {
           if (!attributes['data-highlight']) {
             return {};
@@ -67,9 +57,6 @@ export default Node.create({
       {
         tag: 'span[data-highlight]',
       },
-      {
-        tag: 'span.text-highlighter',
-      },
     ];
   },
 
@@ -80,7 +67,7 @@ export default Node.create({
       textHighlightNode.setAttribute(key, HTMLAttributes[key]);
     });
 
-    textHighlightNode.dataset.highlight = 'true';
+    textHighlightNode.setAttribute('data-highlight', 'true');
     textHighlightNode.innerHTML = node.textContent;
 
     return {

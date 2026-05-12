@@ -25,7 +25,9 @@ public record ReindexingConfiguration(
     int fieldFetchThreads,
     int docBuildThreads,
     long statsIntervalMs,
+    boolean recreateIndex,
     boolean autoTune,
+    boolean useDistributedIndexing,
     boolean force,
     int maxRetries,
     int initialBackoff,
@@ -75,7 +77,9 @@ public record ReindexingConfiguration(
         .fieldFetchThreads(metrics.getRecommendedFieldFetchThreads())
         .docBuildThreads(metrics.getRecommendedDocBuildThreads())
         .statsIntervalMs(metrics.getRecommendedStatsIntervalMs())
+        .recreateIndex(config.recreateIndex())
         .autoTune(true)
+        .useDistributedIndexing(config.useDistributedIndexing())
         .force(config.force())
         .maxRetries(config.maxRetries())
         .initialBackoff(config.initialBackoff())
@@ -124,7 +128,9 @@ public record ReindexingConfiguration(
         DEFAULT_FIELD_FETCH_THREADS,
         DEFAULT_DOC_BUILD_THREADS,
         DEFAULT_STATS_INTERVAL_MS,
+        Boolean.TRUE.equals(jobData.getRecreateIndex()),
         Boolean.TRUE.equals(jobData.getAutoTune()),
+        Boolean.TRUE.equals(jobData.getUseDistributedIndexing()),
         Boolean.TRUE.equals(jobData.getForce()),
         jobData.getMaxRetries() != null ? jobData.getMaxRetries() : DEFAULT_MAX_RETRIES,
         jobData.getInitialBackoff() != null ? jobData.getInitialBackoff() : DEFAULT_INITIAL_BACKOFF,
@@ -181,9 +187,7 @@ public record ReindexingConfiguration(
 
   /** Check if this is a subset (smart) reindexing */
   public boolean isSmartReindexing() {
-    return entities != null
-        && !entities.contains(SearchIndexEntityTypes.ALL)
-        && entities.size() < 20;
+    return entities != null && !entities.contains("all") && entities.size() < 20 && recreateIndex;
   }
 
   /** Creates a builder for more flexible configuration creation */
@@ -202,7 +206,9 @@ public record ReindexingConfiguration(
     private int fieldFetchThreads = DEFAULT_FIELD_FETCH_THREADS;
     private int docBuildThreads = DEFAULT_DOC_BUILD_THREADS;
     private long statsIntervalMs = DEFAULT_STATS_INTERVAL_MS;
+    private boolean recreateIndex = false;
     private boolean autoTune = false;
+    private boolean useDistributedIndexing = false;
     private boolean force = false;
     private int maxRetries = DEFAULT_MAX_RETRIES;
     private int initialBackoff = DEFAULT_INITIAL_BACKOFF;
@@ -264,8 +270,18 @@ public record ReindexingConfiguration(
       return this;
     }
 
+    public Builder recreateIndex(boolean recreateIndex) {
+      this.recreateIndex = recreateIndex;
+      return this;
+    }
+
     public Builder autoTune(boolean autoTune) {
       this.autoTune = autoTune;
+      return this;
+    }
+
+    public Builder useDistributedIndexing(boolean useDistributedIndexing) {
+      this.useDistributedIndexing = useDistributedIndexing;
       return this;
     }
 
@@ -331,7 +347,9 @@ public record ReindexingConfiguration(
           fieldFetchThreads,
           docBuildThreads,
           statsIntervalMs,
+          recreateIndex,
           autoTune,
+          useDistributedIndexing,
           force,
           maxRetries,
           initialBackoff,

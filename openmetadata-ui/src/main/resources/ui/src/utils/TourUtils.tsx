@@ -96,7 +96,7 @@ export const getTourSteps = ({
         />
       </p>
     ),
-    selector: '#search-card-9d664bbd-8c9e-4068-9112-9ab0457d4c52',
+    selector: '#tabledatacard0',
     stepInteraction: false,
   },
   {

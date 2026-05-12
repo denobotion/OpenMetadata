@@ -1,6 +1,7 @@
 package org.openmetadata.service.apps.bundles.searchIndex;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -29,23 +30,25 @@ class QuartzJobContextTest {
     when(app.getId()).thenReturn(appId);
 
     long before = System.currentTimeMillis();
-    QuartzJobContext context = new QuartzJobContext(quartzContext, app);
+    QuartzJobContext context = new QuartzJobContext(quartzContext, app, true);
     long after = System.currentTimeMillis();
 
     assertEquals(appId, context.getJobId());
     assertEquals("reindex-job", context.getJobName());
     assertEquals(appId, context.getAppId());
     assertTrue(context.getStartTime() >= before && context.getStartTime() <= after);
+    assertTrue(context.isDistributed());
     assertEquals("QUARTZ", context.getSource());
   }
 
   @Test
   void quartzJobContextFallsBackWhenQuartzContextOrAppIsMissing() {
-    QuartzJobContext context = new QuartzJobContext(null, null);
+    QuartzJobContext context = new QuartzJobContext(null, null, false);
 
     assertNotNull(context.getJobId());
     assertEquals("unknown", context.getJobName());
     assertNull(context.getAppId());
+    assertFalse(context.isDistributed());
     assertEquals("QUARTZ", context.getSource());
   }
 

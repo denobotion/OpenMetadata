@@ -4771,8 +4771,6 @@ export enum ConfigScheme {
  * Recreate Indexes with updated Language
  *
  * This schema defines the language options available for search index mappings.
- *
- * Search index mapping language.
  */
 export enum SearchIndexMappingLanguage {
     En = "EN",
@@ -6046,7 +6044,11 @@ export interface CollateAIAppConfig {
      */
     queueSize?: number;
     /**
-     * Search index mapping language.
+     * This schema publisher run modes.
+     */
+    recreateIndex?: boolean;
+    /**
+     * Recreate Indexes with updated Language
      */
     searchIndexMappingLanguage?: SearchIndexMappingLanguage;
     /**
@@ -6060,6 +6062,11 @@ export interface CollateAIAppConfig {
      * Set to a positive value like 15 to limit to recent data only.
      */
     timeSeriesMaxDays?: number;
+    /**
+     * Enable distributed indexing to scale reindexing across multiple servers with fault
+     * tolerance and parallel processing
+     */
+    useDistributedIndexing?: boolean;
     /**
      * In multi-instance deployments, claim each entity type via Redis SETNX so only one
      * instance warms it. Disable to let every instance warm independently (idempotent but

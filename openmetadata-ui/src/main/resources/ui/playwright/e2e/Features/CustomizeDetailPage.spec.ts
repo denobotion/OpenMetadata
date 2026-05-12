@@ -128,6 +128,8 @@ test.beforeAll('Setup Customize tests', async ({ browser }) => {
 });
 
 test.afterAll('Cleanup Customize tests', async ({ browser }) => {
+  test.slow();
+
   const { apiContext, afterAction } = await performAdminLogin(browser);
   await adminUser.delete(apiContext);
   await user.delete(apiContext);

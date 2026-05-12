@@ -33,7 +33,7 @@ public interface ReindexingProgressListener {
   /** Called when job configuration is determined (after auto-tune) */
   default void onJobConfigured(ReindexingJobContext context, ReindexingConfiguration config) {}
 
-  /** Called when staged index preparation begins. */
+  /** Called when index recreation begins (if recreateIndex=true) */
   default void onIndexRecreationStarted(Set<String> entities) {}
 
   /** Called when a specific entity type processing begins */

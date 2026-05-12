@@ -14,10 +14,7 @@
 import { ReactComponent as ExploreIcon } from '../assets/svg/explore.svg';
 import { ReactComponent as HomeIcon } from '../assets/svg/ic-home.svg';
 import { LeftSidebarItem } from '../components/MyData/LeftSidebar/LeftSidebar.interface';
-import {
-  SIDEBAR_LIST,
-  SIDEBAR_NESTED_KEYS,
-} from '../constants/LeftSidebar.constants';
+import { SIDEBAR_LIST } from '../constants/LeftSidebar.constants';
 import leftSidebarClassBase, {
   LeftSidebarClassBase,
 } from './LeftSidebarClassBase';
@@ -54,9 +51,6 @@ jest.mock('../constants/LeftSidebar.constants', () => ({
       ],
     },
   ],
-  SIDEBAR_NESTED_KEYS: {
-    '/observability/alerts': '/observability/alerts',
-  },
 }));
 
 describe('LeftSidebarClassBase', () => {
@@ -178,32 +172,6 @@ describe('LeftSidebarClassBase', () => {
       });
     });
 
-    describe('getSidebarNestedKeys', () => {
-      it('should return the SIDEBAR_NESTED_KEYS constant', () => {
-        expect(instance.getSidebarNestedKeys()).toEqual(SIDEBAR_NESTED_KEYS);
-      });
-
-      it('should return the same reference on repeated calls', () => {
-        expect(instance.getSidebarNestedKeys()).toBe(
-          instance.getSidebarNestedKeys()
-        );
-      });
-
-      it('should allow a subclass to override getSidebarNestedKeys with custom routes', () => {
-        class CustomSidebar extends LeftSidebarClassBase {
-          public getSidebarNestedKeys(): Record<string, string> {
-            return { '/custom-route': '/custom-route' };
-          }
-        }
-        const custom = new CustomSidebar();
-
-        expect(custom.getSidebarNestedKeys()).toEqual({
-          '/custom-route': '/custom-route',
-        });
-        expect(instance.getSidebarNestedKeys()).toEqual(SIDEBAR_NESTED_KEYS);
-      });
-    });
-
     describe('Multiple operations', () => {
       it('should allow multiple set and get operations', () => {
         const firstSet: LeftSidebarItem[] = [
@@ -278,12 +246,6 @@ describe('LeftSidebarClassBase', () => {
       const newInstance = new LeftSidebarClassBase();
 
       expect(leftSidebarClassBase).not.toBe(newInstance);
-    });
-
-    it('should return SIDEBAR_NESTED_KEYS from the singleton', () => {
-      expect(leftSidebarClassBase.getSidebarNestedKeys()).toEqual(
-        SIDEBAR_NESTED_KEYS
-      );
     });
   });
 

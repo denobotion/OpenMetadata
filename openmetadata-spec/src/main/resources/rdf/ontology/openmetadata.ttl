@@ -24,13 +24,15 @@
 
 # OpenMetadata Complete Ontology
 om: a owl:Ontology ;
-    owl:versionInfo "1.0.0" ;
+    owl:versionInfo "1.1.0" ;
+    owl:priorVersion <https://open-metadata.org/ontology/1.0.0> ;
     dct:title "OpenMetadata Ontology" ;
     dct:description "Complete ontology for OpenMetadata covering all entities and relationships" ;
     dct:creator "OpenMetadata Team" ;
     dct:created "2025-08-24"^^xsd:date ;
+    dct:modified "2026-04-28"^^xsd:date ;
     dct:license <https://www.apache.org/licenses/LICENSE-2.0> ;
-    owl:imports dcat: , prov: , skos: .
+    owl:imports dcat: , prov: , skos: , dqv: .
 
 #################################################################
 # Base Classes
@@ -315,7 +317,26 @@ om:usedToCalculate a owl:ObjectProperty ;
 
 om:DataContract a owl:Class ;
     rdfs:label "Data Contract" ;
+    rdfs:comment "A formal agreement defining the schema, semantics, quality expectations, and SLAs for a data asset." ;
     rdfs:subClassOf om:Entity .
+
+om:contractStatus a owl:DatatypeProperty ;
+    rdfs:label "contract status" ;
+    rdfs:comment "Lifecycle stage of the contract (Draft, Active, Deprecated)." ;
+    rdfs:domain om:DataContract ;
+    rdfs:range xsd:string .
+
+om:appliesToEntity a owl:ObjectProperty ;
+    rdfs:label "applies to entity" ;
+    rdfs:comment "The data asset this contract governs." ;
+    rdfs:domain om:DataContract ;
+    rdfs:range om:Entity .
+
+om:hasContractTerm a owl:ObjectProperty ;
+    rdfs:label "has contract term" ;
+    rdfs:comment "Schema, quality, semantic, or SLA term embedded in this contract." ;
+    rdfs:domain om:DataContract ;
+    rdfs:range om:Entity .
 
 om:DataProduct a owl:Class ;
     rdfs:label "Data Product" ;
@@ -323,6 +344,142 @@ om:DataProduct a owl:Class ;
 
 om:Domain a owl:Class ;
     rdfs:label "Domain" ;
+    rdfs:subClassOf om:Entity .
+
+om:Persona a owl:Class ;
+    rdfs:label "Persona" ;
+    rdfs:comment "A role or persona that aggregates users with similar needs and customized UI experiences." ;
+    rdfs:subClassOf om:Entity .
+
+#################################################################
+# AI & LLM Classes
+#################################################################
+
+om:LLMModel a owl:Class ;
+    rdfs:label "LLM Model" ;
+    rdfs:comment "A registered Large Language Model deployment, fine-tune, or base model." ;
+    rdfs:subClassOf om:Entity .
+
+om:AIApplication a owl:Class ;
+    rdfs:label "AI Application" ;
+    rdfs:comment "An AI system: chatbot, agent, copilot, RAG application, etc." ;
+    rdfs:subClassOf om:Entity .
+
+om:McpServer a owl:Class ;
+    rdfs:label "MCP Server" ;
+    rdfs:comment "Model Context Protocol server exposing tools and data sources to AI agents." ;
+    rdfs:subClassOf om:Entity .
+
+om:AgentExecution a owl:Class ;
+    rdfs:label "Agent Execution" ;
+    rdfs:comment "A single run of an AI agent or application." ;
+    rdfs:subClassOf om:Entity, prov:Activity .
+
+om:McpExecution a owl:Class ;
+    rdfs:label "MCP Execution" ;
+    rdfs:comment "A single tool invocation against an MCP server." ;
+    rdfs:subClassOf om:Entity, prov:Activity .
+
+om:PromptTemplate a owl:Class ;
+    rdfs:label "Prompt Template" ;
+    rdfs:comment "Reusable prompt template for AI applications." ;
+    rdfs:subClassOf om:Entity .
+
+om:hasTrainingDataset a owl:ObjectProperty ;
+    rdfs:label "has training dataset" ;
+    rdfs:comment "Dataset used to train or fine-tune an LLM. Critical for AI data lineage." ;
+    rdfs:domain om:LLMModel ;
+    rdfs:range om:DataAsset .
+
+om:hasValidationDataset a owl:ObjectProperty ;
+    rdfs:label "has validation dataset" ;
+    rdfs:domain om:LLMModel ;
+    rdfs:range om:DataAsset .
+
+om:usesModel a owl:ObjectProperty ;
+    rdfs:label "uses model" ;
+    rdfs:comment "An AI application uses one or more LLM models." ;
+    rdfs:domain om:AIApplication ;
+    rdfs:range om:LLMModel .
+
+om:usesMcpServer a owl:ObjectProperty ;
+    rdfs:label "uses MCP server" ;
+    rdfs:domain om:AIApplication ;
+    rdfs:range om:McpServer .
+
+#################################################################
+# Data Quality Metrics (DQV-aligned)
+#################################################################
+
+om:DataQualityMetric a owl:Class ;
+    rdfs:label "Data Quality Metric" ;
+    rdfs:comment "Base class for OpenMetadata data-quality metrics. Each instance is a specific named metric (e.g. om:RowCountMetric) emitted as the dqv:isMeasurementOf target on dqv:QualityMeasurement instances." ;
+    rdfs:subClassOf dqv:Metric .
+
+# Table-level metrics
+om:RowCountMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "row count" .
+om:ColumnCountMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "column count" .
+om:SizeInBytesMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "size in bytes" .
+
+# Column-level cardinality metrics
+om:ValuesCountMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "values count" .
+om:ValidCountMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "valid count" .
+om:NullCountMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "null count" .
+om:NullProportionMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "null proportion" .
+om:MissingCountMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "missing count" .
+om:MissingPercentageMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "missing percentage" .
+om:UniqueCountMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "unique count" .
+om:UniqueProportionMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "unique proportion" .
+om:DistinctCountMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "distinct count" .
+om:DistinctProportionMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "distinct proportion" .
+om:DuplicateCountMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "duplicate count" .
+
+# Column-level statistical metrics
+om:MeanMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "mean" .
+om:MinMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "min" .
+om:MaxMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "max" .
+om:MinLengthMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "min length" .
+om:MaxLengthMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "max length" .
+om:SumMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "sum" .
+om:StddevMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "stddev" .
+om:VarianceMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "variance" .
+om:MedianMetric a om:DataQualityMetric, dqv:Metric ;
+    rdfs:label "median" .
+
+#################################################################
+# Automation Classes
+#################################################################
+
+om:Workflow a owl:Class ;
+    rdfs:label "Workflow" ;
+    rdfs:comment "A configured automation workflow (e.g. ingestion pipeline definition)." ;
+    rdfs:subClassOf om:Entity .
+
+om:Automation a owl:Class ;
+    rdfs:label "Automation" ;
+    rdfs:comment "An automation request (e.g. test connection, run query) that produces a result." ;
     rdfs:subClassOf om:Entity .
 
 #################################################################
@@ -603,6 +760,11 @@ om:Column a owl:Class ;
     rdfs:label "Column" ;
     rdfs:comment "Column in a table" ;
     rdfs:subClassOf om:Entity .
+
+om:LineageDetails a owl:Class ;
+    rdfs:label "Lineage Details" ;
+    rdfs:comment "Metadata describing a single lineage edge between two data assets, including SQL, column-level mapping, and the pipeline that produced it." ;
+    rdfs:subClassOf prov:Derivation .
 
 om:hasColumn a owl:ObjectProperty ;
     rdfs:label "has column" ;
@@ -1101,6 +1263,94 @@ om:modified a owl:DatatypeProperty ;
     rdfs:range xsd:dateTime .
 
 #################################################################
+# Usage Properties (sourced from UsageDetails on Table / Dashboard / etc.)
+#################################################################
+
+om:usageDailyCount a owl:DatatypeProperty ;
+    rdfs:label "usage daily count" ;
+    rdfs:comment "Number of times this asset was queried on the recorded date." ;
+    rdfs:domain om:Entity ;
+    rdfs:range xsd:long .
+
+om:usageDailyPercentile a owl:DatatypeProperty ;
+    rdfs:label "usage daily percentile" ;
+    rdfs:comment "Daily percentile rank of this asset's query usage among assets of the same type. Range 0-100. Used by /v1/rdf/insights/important to rank entities." ;
+    rdfs:domain om:Entity ;
+    rdfs:range xsd:double .
+
+om:usageWeeklyCount a owl:DatatypeProperty ;
+    rdfs:label "usage weekly count" ;
+    rdfs:comment "Rolling 7-day query count." ;
+    rdfs:domain om:Entity ;
+    rdfs:range xsd:long .
+
+om:usageWeeklyPercentile a owl:DatatypeProperty ;
+    rdfs:label "usage weekly percentile" ;
+    rdfs:domain om:Entity ;
+    rdfs:range xsd:double .
+
+om:usageMonthlyCount a owl:DatatypeProperty ;
+    rdfs:label "usage monthly count" ;
+    rdfs:comment "Rolling 30-day query count." ;
+    rdfs:domain om:Entity ;
+    rdfs:range xsd:long .
+
+om:usageMonthlyPercentile a owl:DatatypeProperty ;
+    rdfs:label "usage monthly percentile" ;
+    rdfs:domain om:Entity ;
+    rdfs:range xsd:double .
+
+om:usageDate a owl:DatatypeProperty ;
+    rdfs:label "usage date" ;
+    rdfs:comment "Date the usage stats were recorded for." ;
+    rdfs:domain om:Entity ;
+    rdfs:range xsd:date .
+
+#################################################################
+# Insights (Phase 3 — graph-derived importance scores)
+#################################################################
+
+om:centralityScore a owl:DatatypeProperty ;
+    rdfs:label "centrality score" ;
+    rdfs:comment "Topology-derived importance score (e.g. weighted PageRank) computed for entities lacking query usage. Range 0-1. Persisted into a separate named graph by the RdfGraphAlgorithmsApp." ;
+    rdfs:domain om:Entity ;
+    rdfs:range xsd:double .
+
+om:centralityRank a owl:DatatypeProperty ;
+    rdfs:label "centrality rank" ;
+    rdfs:comment "Rank within the entity type, lowest is most central." ;
+    rdfs:domain om:Entity ;
+    rdfs:range xsd:integer .
+
+om:Community a owl:Class ;
+    rdfs:label "Community" ;
+    rdfs:comment "A cluster of entities discovered by community-detection over the lineage or tag-co-occurrence graph (e.g. Louvain modularity optimization). Members share dense connectivity within the cluster relative to the rest of the graph." .
+
+om:hasMember a owl:ObjectProperty ;
+    rdfs:label "has member" ;
+    rdfs:comment "Asserts that an entity belongs to a community." ;
+    rdfs:domain om:Community ;
+    rdfs:range om:Entity .
+
+om:modularity a owl:DatatypeProperty ;
+    rdfs:label "modularity" ;
+    rdfs:comment "Modularity score (Newman, 2006) of the partition that produced this community. Higher values indicate more clearly defined communities; the same value applies to every community persisted from the same run. Range [-1, 1]." ;
+    rdfs:domain om:Community ;
+    rdfs:range xsd:double .
+
+om:communityType a owl:DatatypeProperty ;
+    rdfs:label "community type" ;
+    rdfs:comment "Source graph the community was discovered on, e.g. 'lineage' or 'tagCoOccurrence'." ;
+    rdfs:domain om:Community ;
+    rdfs:range xsd:string .
+
+om:communitySize a owl:DatatypeProperty ;
+    rdfs:label "community size" ;
+    rdfs:comment "Number of members in this community." ;
+    rdfs:domain om:Community ;
+    rdfs:range xsd:integer .
+
+#################################################################
 # CSVW Tabular Data Metadata (for Tables)
 #################################################################
 
@@ -1142,6 +1392,57 @@ om:isNullable a owl:DatatypeProperty ;
     rdfs:domain om:Column ;
     rdfs:range xsd:boolean .
 
+om:isUnique a owl:DatatypeProperty ;
+    rdfs:label "is unique" ;
+    rdfs:comment "Whether this column has a uniqueness guarantee, either from a column-level UNIQUE constraint or membership in a single-column UNIQUE / PRIMARY_KEY table constraint." ;
+    rdfs:domain om:Column ;
+    rdfs:range xsd:boolean .
+
+om:references a owl:ObjectProperty ;
+    rdfs:label "references" ;
+    rdfs:comment "Foreign-key reference: this column references the value space of another column. The triple is positional — source columns[i] references referredColumns[i] from the table constraint." ;
+    rdfs:domain om:Column ;
+    rdfs:range om:Column .
+
+#################################################################
+# Table-level Constraint Properties
+#################################################################
+
+om:TableConstraint a owl:Class ;
+    rdfs:label "Table Constraint" ;
+    rdfs:comment "A table-level constraint such as PRIMARY_KEY, UNIQUE, or FOREIGN_KEY that may span multiple columns." ;
+    rdfs:subClassOf om:Entity .
+
+om:hasConstraint a owl:ObjectProperty ;
+    rdfs:label "has constraint" ;
+    rdfs:comment "Links a table to a constraint declared on it." ;
+    rdfs:domain om:Table ;
+    rdfs:range om:TableConstraint .
+
+om:constraintType a owl:DatatypeProperty ;
+    rdfs:label "constraint type" ;
+    rdfs:comment "PRIMARY_KEY, UNIQUE, FOREIGN_KEY, SORT_KEY, DIST_KEY, or CLUSTER_KEY." ;
+    rdfs:domain om:TableConstraint ;
+    rdfs:range xsd:string .
+
+om:hasConstrainedColumn a owl:ObjectProperty ;
+    rdfs:label "has constrained column" ;
+    rdfs:comment "A column participating in this constraint (the source side for a FOREIGN_KEY)." ;
+    rdfs:domain om:TableConstraint ;
+    rdfs:range om:Column .
+
+om:hasReferredColumn a owl:ObjectProperty ;
+    rdfs:label "has referred column" ;
+    rdfs:comment "A column that this constraint references (only set for FOREIGN_KEY)." ;
+    rdfs:domain om:TableConstraint ;
+    rdfs:range om:Column .
+
+om:relationshipType a owl:DatatypeProperty ;
+    rdfs:label "relationship type" ;
+    rdfs:comment "Cardinality of a FOREIGN_KEY constraint: ONE_TO_ONE, ONE_TO_MANY, MANY_TO_ONE, or MANY_TO_MANY." ;
+    rdfs:domain om:TableConstraint ;
+    rdfs:range xsd:string .
+
 om:sampleData a owl:ObjectProperty ;
     rdfs:label "sample data" ;
     rdfs:comment "Sample data from the table" ;
@@ -1173,16 +1474,47 @@ om:transformationFunction a owl:DatatypeProperty ;
 om:fromColumn a owl:ObjectProperty ;
     rdfs:label "from column" ;
     rdfs:subPropertyOf prov:used ;
-    rdfs:comment "Source column used in transformation" ;
-    rdfs:domain om:Column ;
+    rdfs:comment "Source column used in transformation. Object is an om:Column resource." ;
+    rdfs:domain om:ColumnLineage ;
     rdfs:range om:Column .
 
 om:toColumn a owl:ObjectProperty ;
     rdfs:label "to column" ;
     rdfs:subPropertyOf prov:wasGeneratedBy ;
-    rdfs:comment "Target column created by transformation" ;
+    rdfs:comment "Target column created by transformation. Object is an om:Column resource." ;
+    rdfs:domain om:ColumnLineage ;
+    rdfs:range om:Column .
+
+om:fromColumnFqn a owl:DatatypeProperty ;
+    rdfs:label "from column FQN" ;
+    rdfs:comment "FQN string of the source column. Retained alongside om:fromColumn for back-compat with consumers that match by string FQN." ;
+    rdfs:domain om:ColumnLineage ;
+    rdfs:range xsd:string .
+
+om:toColumnFqn a owl:DatatypeProperty ;
+    rdfs:label "to column FQN" ;
+    rdfs:comment "FQN string of the target column. Retained alongside om:toColumn for back-compat." ;
+    rdfs:domain om:ColumnLineage ;
+    rdfs:range xsd:string .
+
+om:hasChildColumn a owl:ObjectProperty ;
+    rdfs:label "has child column" ;
+    rdfs:comment "Nested child column (struct/map/union dataType). Subproperty of om:hasColumn." ;
+    rdfs:subPropertyOf om:hasColumn ;
     rdfs:domain om:Column ;
     rdfs:range om:Column .
+
+om:hasColumnLineage a owl:ObjectProperty ;
+    rdfs:label "has column lineage" ;
+    rdfs:comment "Links a LineageDetails resource to a per-column lineage edge." ;
+    rdfs:domain om:LineageDetails ;
+    rdfs:range om:ColumnLineage .
+
+om:transformFunction a owl:DatatypeProperty ;
+    rdfs:label "transform function" ;
+    rdfs:comment "Function name applied between fromColumn(s) and toColumn (e.g. CONCAT, UPPER)." ;
+    rdfs:domain om:ColumnLineage ;
+    rdfs:range xsd:string .
 
 om:lineageCreatedBy a owl:ObjectProperty ;
     rdfs:label "lineage created by" ;

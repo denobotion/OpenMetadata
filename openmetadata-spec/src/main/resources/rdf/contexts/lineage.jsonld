@@ -71,12 +71,12 @@
         "@container": "@set"
       },
       "fromColumns": {
-        "@id": "om:fromColumns",
+        "@id": "om:fromColumnFqn",
         "@type": "xsd:string",
         "@container": "@list"
       },
       "toColumn": {
-        "@id": "om:toColumn",
+        "@id": "om:toColumnFqn",
         "@type": "xsd:string"
       },
       "function": {

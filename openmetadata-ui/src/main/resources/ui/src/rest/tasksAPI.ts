@@ -210,10 +210,7 @@ export interface ResolveTask {
 
 const BASE_URL = '/tasks';
 
-export enum TaskStatusGroup {
-  Open = 'open',
-  Closed = 'closed',
-}
+export type TaskStatusGroup = 'open' | 'closed';
 export type TaskCountView =
   | 'all'
   | 'visible'

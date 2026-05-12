@@ -74,7 +74,6 @@ import { searchQuery } from '../../../rest/searchAPI';
 import {
   getEntityDeleteMessage,
   getFeedCounts,
-  hasEditAccess,
 } from '../../../utils/CommonUtils';
 import {
   checkIfExpandViewSupported,
@@ -350,13 +349,8 @@ const DataProductsDetailsPage = ({
   );
 
   const isOwner = useMemo(
-    () =>
-      Boolean(
-        currentUser &&
-          dataProduct.owners?.length &&
-          hasEditAccess(dataProduct.owners, currentUser)
-      ),
-    [dataProduct.owners, currentUser]
+    () => dataProduct.owners?.some((o) => o.id === currentUser?.id) ?? false,
+    [dataProduct.owners, currentUser?.id]
   );
 
   const handleVoteChange = useCallback(

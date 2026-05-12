@@ -24,7 +24,6 @@ import org.openmetadata.schema.type.Include;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.apps.bundles.searchIndex.EntityPriority;
 import org.openmetadata.service.apps.bundles.searchIndex.ReindexingConfiguration;
-import org.openmetadata.service.apps.bundles.searchIndex.SearchIndexEntityTypes;
 import org.openmetadata.service.jdbi3.EntityRepository;
 import org.openmetadata.service.jdbi3.EntityTimeSeriesRepository;
 import org.openmetadata.service.jdbi3.ListFilter;
@@ -81,6 +80,18 @@ public class PartitionCalculator {
           Map.entry("testCaseResolutionStatus", 0.3), // Time series, simple structure
           Map.entry("queryCostRecord", 0.3) // Time series, simple structure
           );
+
+  /** Time series entity types */
+  private static final Set<String> TIME_SERIES_ENTITIES =
+      Set.of(
+          "testCaseResolutionStatus",
+          "testCaseResult",
+          "queryCostRecord",
+          "webAnalyticEntityViewReportData",
+          "webAnalyticUserActivityReportData",
+          "entityReportData",
+          "rawCostAnalysisReportData",
+          "aggregatedCostAnalysisReportData");
 
   private final int partitionSize;
   private final int minPartitionsPerEntity;
@@ -245,7 +256,7 @@ public class PartitionCalculator {
   public long getEntityCount(String entityType, ReindexingConfiguration reindexConfig) {
     try {
       long count;
-      if (SearchIndexEntityTypes.isTimeSeriesEntity(entityType)) {
+      if (TIME_SERIES_ENTITIES.contains(entityType)) {
         count = getTimeSeriesEntityCount(entityType, reindexConfig);
       } else {
         count = getRegularEntityCount(entityType);
@@ -267,7 +278,7 @@ public class PartitionCalculator {
     ListFilter listFilter = new ListFilter(Include.ALL);
     EntityTimeSeriesRepository<?> repository;
 
-    if (SearchIndexEntityTypes.isDataInsightEntity(entityType)) {
+    if (isDataInsightIndex(entityType)) {
       listFilter.addQueryParam("entityFQNHash", FullyQualifiedName.buildHash(entityType));
       repository = Entity.getEntityTimeSeriesRepository(Entity.ENTITY_REPORT_DATA);
     } else {
@@ -290,6 +301,10 @@ public class PartitionCalculator {
     }
 
     return repository.getTimeSeriesDao().listCount(listFilter);
+  }
+
+  private boolean isDataInsightIndex(String entityType) {
+    return entityType.endsWith("ReportData");
   }
 
   /**

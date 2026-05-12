@@ -15,6 +15,8 @@ import { Column } from '../../../generated/entity/data/table';
 import { EntityReference } from '../../../generated/entity/type';
 import { FeedCounts } from '../../../interface/feed.interface';
 
+export type TaskFilter = 'open' | 'close';
+
 export enum ActivityFeedTabs {
   ALL = 'all',
   MENTIONS = 'mentions',

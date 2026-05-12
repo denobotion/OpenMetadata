@@ -25,9 +25,9 @@ import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.apps.bundles.searchIndex.BulkSink;
 import org.openmetadata.service.apps.bundles.searchIndex.IndexingFailureRecorder;
+import org.openmetadata.service.cache.CacheConfig;
 import org.openmetadata.service.jdbi3.AppRepository;
 import org.openmetadata.service.jdbi3.CollectionDAO;
-import org.openmetadata.service.search.ReindexContext;
 import org.openmetadata.service.search.SearchClusterMetrics;
 import org.openmetadata.service.search.SearchRepository;
 
@@ -39,7 +39,12 @@ import org.openmetadata.service.search.SearchRepository;
  * service runs on all servers and allows non-triggering servers to discover and participate in
  * active jobs.
  *
- * <p>Job discovery is handled by a {@link DistributedJobNotifier} backed by database polling.
+ * <p>Job discovery is handled by a {@link DistributedJobNotifier}:
+ *
+ * <ul>
+ *   <li>When Redis is configured: Uses Redis Pub/Sub for instant notification
+ *   <li>When Redis is not available: Falls back to database polling (30s interval)
+ * </ul>
  */
 @Slf4j
 public class DistributedJobParticipant implements Managed {
@@ -68,12 +73,15 @@ public class DistributedJobParticipant implements Managed {
   private volatile Thread participantThread;
 
   public DistributedJobParticipant(
-      CollectionDAO collectionDAO, SearchRepository searchRepository, String serverId) {
+      CollectionDAO collectionDAO,
+      SearchRepository searchRepository,
+      String serverId,
+      CacheConfig cacheConfig) {
     this(
         collectionDAO,
         searchRepository,
         serverId,
-        DistributedJobNotifierFactory.create(collectionDAO, serverId));
+        DistributedJobNotifierFactory.create(cacheConfig, collectionDAO, serverId));
   }
 
   /**
@@ -103,7 +111,7 @@ public class DistributedJobParticipant implements Managed {
       // Register callback to receive job start notifications
       notifier.onJobStarted(this::onJobDiscovered);
 
-      // Start the notifier
+      // Start the notifier (Redis subscription or polling)
       notifier.start();
 
       // Start orphan job monitor to detect jobs left behind by crashed coordinators
@@ -181,16 +189,7 @@ public class DistributedJobParticipant implements Managed {
       // Check if there are pending partitions we can help with
       long pendingCount = coordinator.getPartitions(job.getId(), PartitionStatus.PENDING).size();
       if (pendingCount == 0) {
-        long processingCount =
-            coordinator.getPartitions(job.getId(), PartitionStatus.PROCESSING).size();
-        long completedCount =
-            coordinator.getPartitions(job.getId(), PartitionStatus.COMPLETED).size();
-        LOG.info(
-            "Discovered distributed job {} on server {}, but no pending partitions remain (processing={}, completed={}); not joining",
-            job.getId(),
-            serverId,
-            processingCount,
-            completedCount);
+        LOG.debug("No pending partitions to process for job {}", job.getId());
         return;
       }
 
@@ -306,12 +305,6 @@ public class DistributedJobParticipant implements Managed {
     DistributedJobStatsAggregator statsAggregator = null;
     AppRunRecordContext appCtx = null;
     try {
-      Optional<ReindexContext> stagedIndexContext = buildStagedIndexContext(job);
-      if (stagedIndexContext.isEmpty()) {
-        return;
-      }
-      ReindexContext reindexContext = stagedIndexContext.orElseThrow();
-
       appCtx = resolveAppRunRecordContext();
       if (appCtx != null) {
         restoreAppRunRecordToRunning(appCtx.appId(), appCtx.startTime());
@@ -348,6 +341,22 @@ public class DistributedJobParticipant implements Managed {
               ? job.getJobConfiguration().getBatchSize()
               : 100;
 
+      // Check if this job is doing index recreation
+      boolean recreateIndex = Boolean.TRUE.equals(job.getJobConfiguration().getRecreateIndex());
+      org.openmetadata.service.search.ReindexContext recreateContext = null;
+
+      if (recreateIndex && job.getStagedIndexMapping() != null) {
+        // Reconstruct context from job's staged index mapping
+        recreateContext =
+            org.openmetadata.service.search.ReindexContext.fromStagedIndexMapping(
+                job.getStagedIndexMapping());
+        LOG.info(
+            "Participant using staged index mapping from job {}: {}",
+            job.getId(),
+            job.getStagedIndexMapping());
+      }
+
+      // Set up failure callback on bulk sink to record sink failures
       final IndexingFailureRecorder recorder = failureRecorder;
       bulkSink.setFailureCallback(
           (entityType, entityId, entityFqn, errorMessage, stage) -> {
@@ -360,8 +369,10 @@ public class DistributedJobParticipant implements Managed {
             }
           });
 
+      // Create partition worker with recreate context and failure recorder
       PartitionWorker worker =
-          new PartitionWorker(coordinator, bulkSink, batchSize, reindexContext, failureRecorder);
+          new PartitionWorker(
+              coordinator, bulkSink, batchSize, recreateContext, recreateIndex, failureRecorder);
 
       int partitionsProcessed = 0;
       long totalReaderSuccess = 0;
@@ -473,21 +484,6 @@ public class DistributedJobParticipant implements Managed {
         }
       }
     }
-  }
-
-  private Optional<ReindexContext> buildStagedIndexContext(SearchIndexJob job) {
-    if (job.getStagedIndexMapping() == null || job.getStagedIndexMapping().isEmpty()) {
-      LOG.warn(
-          "Skipping distributed reindex job {} on server {} because staged index mapping is missing",
-          job.getId(),
-          serverId);
-      return Optional.empty();
-    }
-    LOG.info(
-        "Participant using staged index mapping from job {}: {}",
-        job.getId(),
-        job.getStagedIndexMapping());
-    return Optional.of(ReindexContext.fromStagedIndexMapping(job.getStagedIndexMapping()));
   }
 
   /** Check if currently participating in a job. */

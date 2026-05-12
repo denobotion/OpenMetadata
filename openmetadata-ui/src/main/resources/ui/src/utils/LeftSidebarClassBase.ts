@@ -11,10 +11,7 @@
  *  limitations under the License.
  */
 import { LeftSidebarItem } from '../components/MyData/LeftSidebar/LeftSidebar.interface';
-import {
-  SIDEBAR_LIST,
-  SIDEBAR_NESTED_KEYS,
-} from '../constants/LeftSidebar.constants';
+import { SIDEBAR_LIST } from '../constants/LeftSidebar.constants';
 
 class LeftSidebarClassBase {
   sidebarItems: Array<LeftSidebarItem>;
@@ -32,10 +29,6 @@ class LeftSidebarClassBase {
 
   public setSidebarItems(items: Array<LeftSidebarItem>): void {
     this.sidebarItems = items;
-  }
-
-  public getSidebarNestedKeys(): Record<string, string> {
-    return SIDEBAR_NESTED_KEYS;
   }
 }
 

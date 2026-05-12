@@ -58,6 +58,11 @@ public class DistributedJobContext implements ReindexingJobContext {
   }
 
   @Override
+  public boolean isDistributed() {
+    return true;
+  }
+
+  @Override
   public String getSource() {
     return source;
   }

@@ -33,13 +33,14 @@ import org.slf4j.MDC;
 
 @Slf4j
 public class ReindexingOrchestrator {
+  private static final String ALL = "all";
   private final CollectionDAO collectionDAO;
   private final SearchRepository searchRepository;
   private final OrchestratorContext context;
 
   @Getter private EventPublisherJob jobData;
   private volatile boolean stopped = false;
-  private volatile DistributedIndexingStrategy activeStrategy;
+  private volatile IndexingStrategy activeStrategy;
   private volatile Map<String, Object> resultMetadata = Collections.emptyMap();
 
   public ReindexingOrchestrator(
@@ -94,7 +95,7 @@ public class ReindexingOrchestrator {
     LOG.info("Reindexing job is being stopped.");
     stopped = true;
 
-    DistributedIndexingStrategy strategy = this.activeStrategy;
+    IndexingStrategy strategy = this.activeStrategy;
     if (strategy != null) {
       try {
         strategy.stop();
@@ -109,7 +110,6 @@ public class ReindexingOrchestrator {
 
     AppRunRecord appRecord = context.getJobRecord();
     appRecord.setStatus(AppRunRecord.Status.STOPPED);
-    sanitizeRunRecordConfig(appRecord);
     OmAppJobListener.fillTerminalTimings(appRecord);
     context.storeRunRecord(JsonUtils.pojoToJson(appRecord));
     context.pushStatusUpdate(appRecord, true);
@@ -129,10 +129,10 @@ public class ReindexingOrchestrator {
       jobData = loadJobData();
     }
 
-    if (ON_DEMAND_JOB.equals(context.getJobName())) {
+    String jobName = context.getJobName();
+    if (jobName.equals(ON_DEMAND_JOB)) {
       Map<String, Object> jsonAppConfig =
           JsonUtils.convertValue(jobData, new TypeReference<Map<String, Object>>() {});
-      SearchIndexAppConfigSanitizer.removeRemovedOptions(jsonAppConfig);
       context.updateAppConfiguration(jsonAppConfig);
     }
   }
@@ -140,18 +140,12 @@ public class ReindexingOrchestrator {
   private EventPublisherJob loadJobData() {
     String appConfigJson = context.getAppConfigJson();
     if (appConfigJson != null) {
-      Map<String, Object> appConfig =
-          JsonUtils.readValue(appConfigJson, new TypeReference<Map<String, Object>>() {});
-      return JsonUtils.convertValue(
-          SearchIndexAppConfigSanitizer.copyWithoutRemovedOptions(appConfig),
-          EventPublisherJob.class);
+      return JsonUtils.readValue(appConfigJson, EventPublisherJob.class);
     }
 
     Map<String, Object> appConfig = context.getAppConfiguration();
     if (appConfig != null) {
-      return JsonUtils.convertValue(
-          SearchIndexAppConfigSanitizer.copyWithoutRemovedOptions(appConfig),
-          EventPublisherJob.class);
+      return JsonUtils.convertValue(appConfig, EventPublisherJob.class);
     }
 
     LOG.error("Unable to initialize jobData from JobDataMap or App configuration");
@@ -218,77 +212,44 @@ public class ReindexingOrchestrator {
   }
 
   private void runReindexing() {
-    if (hasNoEntitiesSelected()) {
-      completeWithoutEntities();
+    if (jobData.getEntities() == null || jobData.getEntities().isEmpty()) {
+      LOG.info("No entities selected for reindexing, completing immediately");
+      jobData.setStatus(EventPublisherJob.Status.COMPLETED);
+      jobData.setStats(new Stats());
       return;
     }
 
     setupEntities();
     cleanupOldFailures();
-    logJobStart();
 
-    DistributedIndexingStrategy strategy = createDistributedStrategy();
-    activeStrategy = strategy;
-    registerProgressListeners(strategy);
-
-    ReindexingConfiguration config = buildReindexingConfiguration();
-    ExecutionResult result = executeDistributedReindex(strategy, config);
-    persistExecutionResult(result);
-  }
-
-  private boolean hasNoEntitiesSelected() {
-    return jobData.getEntities() == null || jobData.getEntities().isEmpty();
-  }
-
-  private void completeWithoutEntities() {
-    LOG.info("No entities selected for reindexing, completing immediately");
-    jobData.setStatus(EventPublisherJob.Status.COMPLETED);
-    jobData.setStats(new Stats());
-  }
-
-  private void logJobStart() {
     LOG.info(
-        "Search Index Job Started for Entities: {} using staged index promotion",
-        jobData.getEntities());
-  }
+        "Search Index Job Started for Entities: {}, RecreateIndex: {}, DistributedIndexing: {}",
+        jobData.getEntities(),
+        jobData.getRecreateIndex(),
+        jobData.getUseDistributedIndexing());
 
-  private DistributedIndexingStrategy createDistributedStrategy() {
-    AppRunRecord appRecord = context.getJobRecord();
-    return new DistributedIndexingStrategy(
-        collectionDAO,
-        searchRepository,
-        jobData,
-        appRecord.getAppId(),
-        appRecord.getStartTime(),
-        context.getJobName());
-  }
+    activeStrategy = createStrategy();
 
-  private void registerProgressListeners(DistributedIndexingStrategy strategy) {
-    strategy.addListener(context.createProgressListener(jobData));
-    strategy.addListener(new LoggingProgressListener());
+    activeStrategy.addListener(context.createProgressListener(jobData));
+    activeStrategy.addListener(new LoggingProgressListener());
 
     if (hasSlackConfig()) {
-      strategy.addListener(
+      String instanceUrl = getInstanceUrl();
+      activeStrategy.addListener(
           new SlackProgressListener(
-              jobData.getSlackBotToken(), jobData.getSlackChannel(), getInstanceUrl()));
+              jobData.getSlackBotToken(), jobData.getSlackChannel(), instanceUrl));
     }
-  }
 
-  private ReindexingConfiguration buildReindexingConfiguration() {
+    ReindexingJobContext jobContext =
+        context.createReindexingContext(Boolean.TRUE.equals(jobData.getUseDistributedIndexing()));
+
     ReindexingConfiguration config = ReindexingConfiguration.from(jobData);
-    config =
-        ReindexingConfiguration.applyAutoTuning(config, searchRepository, countTotalEntities());
+    long totalEntities = countTotalEntities();
+    config = ReindexingConfiguration.applyAutoTuning(config, searchRepository, totalEntities);
     config.applyTo(jobData);
     updateRunRecordConfig(config);
-    return config;
-  }
 
-  private ExecutionResult executeDistributedReindex(
-      DistributedIndexingStrategy strategy, ReindexingConfiguration config) {
-    return strategy.execute(config, context.createReindexingContext());
-  }
-
-  private void persistExecutionResult(ExecutionResult result) {
+    ExecutionResult result = activeStrategy.execute(config, jobContext);
     updateJobDataFromResult(result);
 
     if (jobData.getStats() != null) {
@@ -298,6 +259,20 @@ public class ReindexingOrchestrator {
     if (!result.metadata().isEmpty()) {
       saveResultMetadataToJobRecord(result.metadata());
     }
+  }
+
+  private IndexingStrategy createStrategy() {
+    if (Boolean.TRUE.equals(jobData.getUseDistributedIndexing())) {
+      AppRunRecord appRecord = context.getJobRecord();
+      return new DistributedIndexingStrategy(
+          collectionDAO,
+          searchRepository,
+          jobData,
+          appRecord.getAppId(),
+          appRecord.getStartTime(),
+          context.getJobName());
+    }
+    return new SingleServerIndexingStrategy(collectionDAO, searchRepository);
   }
 
   private void updateJobDataFromResult(ExecutionResult result) {
@@ -323,7 +298,6 @@ public class ReindexingOrchestrator {
       if (appRecord != null) {
         Map<String, Object> configMap = appRecord.getConfig();
         if (configMap != null) {
-          SearchIndexAppConfigSanitizer.removeRemovedOptions(configMap);
           configMap.put("batchSize", config.batchSize());
           configMap.put("consumerThreads", config.consumerThreads());
           configMap.put("producerThreads", config.producerThreads());
@@ -362,7 +336,7 @@ public class ReindexingOrchestrator {
   }
 
   private void handleExecutionException(Exception ex) {
-    DistributedIndexingStrategy strategy = this.activeStrategy;
+    IndexingStrategy strategy = this.activeStrategy;
     if (strategy != null && jobData != null) {
       try {
         strategy.getStats().ifPresent(jobData::setStats);
@@ -395,7 +369,6 @@ public class ReindexingOrchestrator {
     if (stopped) {
       AppRunRecord appRecord = context.getJobRecord();
       appRecord.setStatus(AppRunRecord.Status.STOPPED);
-      sanitizeRunRecordConfig(appRecord);
       OmAppJobListener.fillTerminalTimings(appRecord);
       context.storeRunRecord(JsonUtils.pojoToJson(appRecord));
     }
@@ -412,7 +385,6 @@ public class ReindexingOrchestrator {
   private void updateRecordToDbAndNotify() {
     AppRunRecord appRecord = context.getJobRecord();
     appRecord.setStatus(AppRunRecord.Status.fromValue(jobData.getStatus().value()));
-    sanitizeRunRecordConfig(appRecord);
     OmAppJobListener.fillTerminalTimings(appRecord);
 
     if (jobData.getFailure() != null) {
@@ -465,12 +437,6 @@ public class ReindexingOrchestrator {
     }
   }
 
-  private void sanitizeRunRecordConfig(AppRunRecord appRecord) {
-    if (appRecord != null) {
-      SearchIndexAppConfigSanitizer.removeRemovedOptions(appRecord.getConfig());
-    }
-  }
-
   private void cleanupOldFailures() {
     try {
       int deleted = collectionDAO.searchIndexFailureDAO().deleteAll();
@@ -500,11 +466,10 @@ public class ReindexingOrchestrator {
   }
 
   private void setupEntities() {
-    Set<String> entities =
-        jobData.getEntities().contains(SearchIndexEntityTypes.ALL)
-            ? getAll()
-            : jobData.getEntities();
-    jobData.setEntities(SearchIndexEntityTypes.normalizeEntityTypes(entities));
+    boolean containsAll = jobData.getEntities().contains(ALL);
+    if (containsAll) {
+      jobData.setEntities(getAll());
+    }
   }
 
   private Set<String> getAll() {
@@ -522,10 +487,9 @@ public class ReindexingOrchestrator {
     long total = 0;
     for (String entityType : jobData.getEntities()) {
       try {
-        String normalizedEntityType = SearchIndexEntityTypes.normalizeEntityType(entityType);
-        if (!SearchIndexEntityTypes.isTimeSeriesEntity(normalizedEntityType)) {
+        if (!SearchIndexApp.TIME_SERIES_ENTITIES.contains(entityType)) {
           total +=
-              Entity.getEntityRepository(normalizedEntityType)
+              Entity.getEntityRepository(entityType)
                   .getDao()
                   .listCount(
                       new org.openmetadata.service.jdbi3.ListFilter(

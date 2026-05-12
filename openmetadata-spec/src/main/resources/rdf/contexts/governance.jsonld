@@ -35,8 +35,17 @@
         "@type": "om:Entity"
       },
       "glossary": {
-        "@id": "om:belongsToGlossary",
+        "@id": "skos:inScheme",
         "@type": "@id"
+      },
+      "parent": {
+        "@id": "skos:broader",
+        "@type": "@id"
+      },
+      "children": {
+        "@id": "skos:narrower",
+        "@type": "@id",
+        "@container": "@set"
       },
       "synonyms": {
         "@id": "skos:altLabel",
@@ -62,7 +71,7 @@
         "@type": "xsd:string"
       },
       "classification": {
-        "@id": "om:belongsToClassification",
+        "@id": "skos:inScheme",
         "@type": "@id"
       },
       "usageCount": {
@@ -85,6 +94,32 @@
       "entityName": {
         "@id": "om:contractForEntity",
         "@type": "xsd:string"
+      },
+      "contractStatus": {
+        "@id": "om:contractStatus",
+        "@type": "xsd:string"
+      },
+      "appliesTo": {
+        "@id": "om:appliesToEntity",
+        "@type": "@id"
+      },
+      "schema": {
+        "@id": "om:hasContractTerm",
+        "@type": "@json"
+      },
+      "qualityExpectations": {
+        "@id": "om:hasContractTerm",
+        "@type": "@json",
+        "@container": "@set"
+      },
+      "slaExpectations": {
+        "@id": "om:hasContractTerm",
+        "@type": "@json"
+      },
+      "users": {
+        "@id": "om:appliesToUser",
+        "@type": "@id",
+        "@container": "@set"
       },
       "domainType": {
         "@id": "om:domainType",
@@ -127,11 +162,6 @@
       },
       "reviewers": {
         "@id": "om:hasReviewer",
-        "@type": "@id",
-        "@container": "@set"
-      },
-      "childTerms": {
-        "@id": "skos:narrower",
         "@type": "@id",
         "@container": "@set"
       },
